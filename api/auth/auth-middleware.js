@@ -1,6 +1,7 @@
 const db = require("../../data/db-config");
 
 const userModel = require("../users/users-model");
+const bcryptjs = require("bcryptjs");
 
 /*
   Kullanıcının sunucuda kayıtlı bir oturumu yoksa
@@ -10,7 +11,17 @@ const userModel = require("../users/users-model");
     "message": "Geçemezsiniz!"
   }
 */
-function sinirli() {}
+function sinirli(req, res, next) {
+	try {
+		if (req.session && req.session.user_id > 0) {
+			next();
+		} else {
+			res.status(401).json({ message: "Geçemezsiniz!" });
+		}
+	} catch (error) {
+		next(error);
+	}
+}
 
 /*
   req.body de verilen username halihazırda veritabanında varsa
@@ -29,7 +40,9 @@ async function usernameBostami(req, res, next) {
 		} else {
 			next();
 		}
-	} catch (e) {}
+	} catch (e) {
+		next(e);
+	}
 }
 
 /*
@@ -42,16 +55,30 @@ async function usernameBostami(req, res, next) {
 */
 async function usernameVarmi(req, res, next) {
 	try {
-		const { username } = req.body;
-		const isValid = await userModel.goreBul({ username: username });
-		if (isValid && isValid.length > 0) {
-			req.dbUser = isValid[0];
-			next();
+		let { username } = req.body;
+		const isExist = await userModel.goreBul({ username: username });
+
+		if (isExist && isExist.length > 0) {
+			let user = isExist[0];
+			let isPasswordMatch = bcryptjs.compareSync(
+				req.body.password,
+				user.password
+			);
+			if (isPasswordMatch) {
+				req.dbUser = user;
+				next();
+			} else {
+				res.status(401).json({
+					message: "Geçersiz kriter",
+				});
+			}
 		} else {
-			res.status(401).json({ message: "Geçersiz kriter" });
+			res.status(401).json({
+				message: "Geçersiz kriter",
+			});
 		}
-	} catch (e) {
-		next(e);
+	} catch (error) {
+		next(error);
 	}
 }
 
@@ -89,9 +116,10 @@ function checkPayload(req, res, next) {
 	}
 }
 
-exports.module = {
+module.exports = {
+	sinirli,
+	checkPayload,
 	sifreGecerlimi,
 	usernameVarmi,
 	usernameBostami,
-	checkPayload,
 };

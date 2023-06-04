@@ -1,35 +1,50 @@
 // `checkUsernameFree`, `checkUsernameExists` ve `checkPasswordLength` gereklidir (require)
 // `auth-middleware.js` deki middleware fonksiyonları. Bunlara burda ihtiyacınız var!
-
-const {
-	sifreGecerlimi,
-	usernameVarmi,
-	usernameBostami,
-	checkPayload,
-} = require("auth-middleware");
-const credentials = req.body;
-const hash = bcrypt.hashSync(credentials.password, 14);
-credentials.password = hash;
 const router = require("express").Router();
-const bcrypt = require("bcryptjs");
+const userModel = require("../users/users-model");
+const mw = require("./auth-middleware");
+const bcryptjs = require("bcryptjs");
 
-router.post("/register", usernameBostami, sifreGecerlimi, (req, res, next) => {
-	try {
-		const { username, password } = credentials;
-		const hash = bcrypt.hashSync(password, 14);
-		password = hash;
+/**
+  1 [POST] /api/auth/register { "username": "sue", "password": "1234" }
 
-		if (!usernameBostami) {
-			res.send(422).json({ message: "Username kullaniliyor" });
-		} else if (!passwordBostami) {
-			res.send(422).json({ message: "Şifre 3 karakterden fazla olmalı" });
-		} else {
-			res.send(201).json({ username: username });
+  response:
+  status: 201
+  {
+    "user_id": 2,
+    "username": "sue"
+  }
+
+  response username alınmış:
+  status: 422
+  {
+    "message": "Username kullaniliyor"
+  }
+
+  response şifre 3 ya da daha az karakterli:
+  status: 422
+  {
+    "message": "Şifre 3 karakterden fazla olmalı"
+  }
+ */
+
+router.post(
+	"/register",
+	mw.checkPayload,
+	mw.sifreGecerlimi,
+	mw.usernameBostami,
+	async (req, res, next) => {
+		try {
+			let { username, password } = req.body;
+			let hashedPassword = bcryptjs.hashSync(password);
+			let newUser = { username: username, password: hashedPassword };
+			const insertedUser = await userModel.ekle(newUser);
+			res.status(201).json(insertedUser);
+		} catch (error) {
+			next(error);
 		}
-	} catch (err) {
-		next(err);
 	}
-});
+);
 
 /**
   2 [POST] /api/auth/login { "username": "sue", "password": "1234" }
@@ -47,6 +62,21 @@ router.post("/register", usernameBostami, sifreGecerlimi, (req, res, next) => {
   }
  */
 
+router.post(
+	"/login",
+	mw.checkPayload,
+	mw.sifreGecerlimi,
+	mw.usernameVarmi,
+	(req, res, next) => {
+		try {
+			req.session.user_id = req.dbUser.user_id;
+			res.status(200).json({ message: `Hoş geldin ${req.dbUser.username}` });
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
 /**
   3 [GET] /api/auth/logout
 
@@ -63,4 +93,24 @@ router.post("/register", usernameBostami, sifreGecerlimi, (req, res, next) => {
   }
  */
 
+router.get("/logout", (req, res, next) => {
+	try {
+		if (req.session.user_id > 0) {
+			req.session.destroy((err) => {
+				if (err) {
+					res.status(500).json({ message: "logout sırasında hata oluştu" });
+				} else {
+					res.json({ message: "Çıkış yapildi" });
+				}
+			});
+		} else {
+			res.status(200).json({ message: "Oturum bulunamadı!" });
+		}
+	} catch (error) {
+		next(error);
+	}
+});
+
 // Diğer modüllerde kullanılabilmesi için routerı "exports" nesnesine eklemeyi unutmayın.
+
+module.exports = router;
