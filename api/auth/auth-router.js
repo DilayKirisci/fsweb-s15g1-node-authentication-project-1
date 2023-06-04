@@ -1,30 +1,35 @@
 // `checkUsernameFree`, `checkUsernameExists` ve `checkPasswordLength` gereklidir (require)
 // `auth-middleware.js` deki middleware fonksiyonları. Bunlara burda ihtiyacınız var!
 
+const {
+	sifreGecerlimi,
+	usernameVarmi,
+	usernameBostami,
+	checkPayload,
+} = require("auth-middleware");
+const credentials = req.body;
+const hash = bcrypt.hashSync(credentials.password, 14);
+credentials.password = hash;
+const router = require("express").Router();
+const bcrypt = require("bcryptjs");
 
-/**
-  1 [POST] /api/auth/register { "username": "sue", "password": "1234" }
+router.post("/register", usernameBostami, sifreGecerlimi, (req, res, next) => {
+	try {
+		const { username, password } = credentials;
+		const hash = bcrypt.hashSync(password, 14);
+		password = hash;
 
-  response:
-  status: 201
-  {
-    "user_id": 2,
-    "username": "sue"
-  }
-
-  response username alınmış:
-  status: 422
-  {
-    "message": "Username kullaniliyor"
-  }
-
-  response şifre 3 ya da daha az karakterli:
-  status: 422
-  {
-    "message": "Şifre 3 karakterden fazla olmalı"
-  }
- */
-
+		if (!usernameBostami) {
+			res.send(422).json({ message: "Username kullaniliyor" });
+		} else if (!passwordBostami) {
+			res.send(422).json({ message: "Şifre 3 karakterden fazla olmalı" });
+		} else {
+			res.send(201).json({ username: username });
+		}
+	} catch (err) {
+		next(err);
+	}
+});
 
 /**
   2 [POST] /api/auth/login { "username": "sue", "password": "1234" }
@@ -42,7 +47,6 @@
   }
  */
 
-
 /**
   3 [GET] /api/auth/logout
 
@@ -59,5 +63,4 @@
   }
  */
 
- 
 // Diğer modüllerde kullanılabilmesi için routerı "exports" nesnesine eklemeyi unutmayın.

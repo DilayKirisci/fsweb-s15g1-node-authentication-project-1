@@ -1,3 +1,7 @@
+const db = require("../../data/db-config");
+
+const userModel = require("../users/users-model");
+
 /*
   Kullanıcının sunucuda kayıtlı bir oturumu yoksa
 
@@ -6,9 +10,7 @@
     "message": "Geçemezsiniz!"
   }
 */
-function sinirli() {
-
-}
+function sinirli() {}
 
 /*
   req.body de verilen username halihazırda veritabanında varsa
@@ -18,8 +20,16 @@ function sinirli() {
     "message": "Username kullaniliyor"
   }
 */
-function usernameBostami() {
-
+async function usernameBostami(req, res, next) {
+	try {
+		const { username } = req.body;
+		const isValid = userModel.goreBul({ username: username });
+		if (isValid && isValid > 0) {
+			res.status(422).json({ message: "Username kullaniliyor" });
+		} else {
+			next();
+		}
+	} catch (e) {}
 }
 
 /*
@@ -30,8 +40,19 @@ function usernameBostami() {
     "message": "Geçersiz kriter"
   }
 */
-function usernameVarmi() {
-
+async function usernameVarmi(req, res, next) {
+	try {
+		const { username } = req.body;
+		const isValid = await userModel.goreBul({ username: username });
+		if (isValid && isValid.length > 0) {
+			req.dbUser = isValid[0];
+			next();
+		} else {
+			res.status(401).json({ message: "Geçersiz kriter" });
+		}
+	} catch (e) {
+		next(e);
+	}
 }
 
 /*
@@ -42,8 +63,35 @@ function usernameVarmi() {
     "message": "Şifre 3 karakterden fazla olmalı"
   }
 */
-function sifreGecerlimi() {
-
+function sifreGecerlimi(req, res, next) {
+	try {
+		const { password } = req.body;
+		if (!password || password.length < 3) {
+			res.status(422).json({ message: "Şifre 3 karakterden fazla olmalı" });
+		} else {
+			next();
+		}
+	} catch (e) {}
 }
 
-// Diğer modüllerde kullanılabilmesi için fonksiyonları "exports" nesnesine eklemeyi unutmayın.
+function checkPayload(req, res, next) {
+	try {
+		const { username, password } = req.body;
+		if (!username || !password) {
+			res.status(400).json({ message: "alanlar bos olamaz" });
+		} else {
+			next();
+		}
+	} catch (e) {
+		{
+			next(e);
+		}
+	}
+}
+
+exports.module = {
+	sifreGecerlimi,
+	usernameVarmi,
+	usernameBostami,
+	checkPayload,
+};

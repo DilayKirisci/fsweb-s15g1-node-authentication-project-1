@@ -1,6 +1,7 @@
 const express = require("express");
 const helmet = require("helmet");
 const cors = require("cors");
+const bcrypt = require("bcryptjs");
 
 /**
   Kullanıcı oturumlarını desteklemek için `express-session` paketini kullanın!
@@ -22,14 +23,15 @@ server.use(express.json());
 server.use(cors());
 
 server.get("/", (req, res) => {
-  res.json({ api: "up" });
+	res.json({ api: "up" });
 });
 
-server.use((err, req, res, next) => { // eslint-disable-line
-  res.status(err.status || 500).json({
-    message: err.message,
-    stack: err.stack,
-  });
+server.use((err, req, res, next) => {
+	// eslint-disable-line
+	res.status(err.status || 500).json({
+		message: err.message,
+		stack: err.stack,
+	});
 });
 
 module.exports = server;
